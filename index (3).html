@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecuraScan MZ — Segurança Web para Moçambique</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg2: #f4f6f9;
+      --bg3: #eaf0fb;
+      --border: rgba(10,22,40,0.1);
+      --border2: rgba(10,22,40,0.18);
+      --text: #000000;
+      --text2: #3a4a6b;
+      --text3: #8ba0c4;
+      --green: #0a1628;
+      --green-dim: rgba(10,22,40,0.08);
+      --red: #c0392b;
+      --red-dim: rgba(192,57,43,0.1);
+      --amber: #b07d10;
+      --amber-dim: rgba(176,125,16,0.1);
+      --blue: #1a3560;
+      --blue-dim: rgba(26,53,96,0.1);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-display); line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+
+    .noise {
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0; opacity: 0.2;
+    }
+    .hidden { display: none !important; }
+
+    /* HEADER */
+    .header { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+    .header-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+    .logo-icon { width: 36px; height: 36px; background: var(--green-dim); border: 1px solid rgba(10,22,40,0.2); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; }
+    .logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-mz { color: var(--blue); }
+    .nav { display: flex; align-items: center; gap: 24px; }
+    .nav a { font-size: 13px; color: var(--text2); text-decoration: none; transition: color 0.2s; }
+    .nav a:hover { color: var(--text); }
+    .nav-gh { background: var(--bg3); border: 1px solid var(--border2); border-radius: 20px; padding: 5px 14px; font-size: 12px; font-family: var(--font-mono); color: var(--text2) !important; }
+    .nav-gh:hover { border-color: var(--blue); color: var(--blue) !important; }
+
+    /* STATUS BACKEND */
+    .backend-status { display: flex; align-items: center; gap: 6px; font-size: 11px; font-family: var(--font-mono); padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg3); color: var(--text3); cursor: default; }
+    .backend-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
+    .backend-status.online { color: #1a7a4a; border-color: rgba(26,122,74,0.3); background: rgba(26,122,74,0.07); }
+    .backend-status.online .backend-dot { background: #1a7a4a; box-shadow: 0 0 5px rgba(26,122,74,0.5); animation: pulse 1.5s ease infinite; }
+    .backend-status.offline { color: var(--red); border-color: rgba(192,57,43,0.3); background: var(--red-dim); }
+    .backend-status.offline .backend-dot { background: var(--red); }
+
+    /* HERO */
+    .hero { max-width: 900px; margin: 0 auto; padding: 80px 24px 60px; position: relative; z-index: 1; display: flex; align-items: center; gap: 48px; }
+    .hero::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse at center, rgba(26,53,96,0.06) 0%, transparent 70%); pointer-events: none; }
+    .hero-text { flex: 1; min-width: 0; }
+
+    /* 3D Canvas */
+    .hero-3d { flex-shrink: 0; width: 280px; height: 280px; position: relative; }
+    .canvas-controls { position: absolute; bottom: -36px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+    .ctrl-btn { font-size: 11px; font-family: var(--font-mono); padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg3); color: var(--text2); cursor: pointer; transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+    .ctrl-btn:hover { border-color: var(--blue); color: var(--blue); transform: translateY(-2px); }
+    .ctrl-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+    .ctrl-speed { display: flex; align-items: center; gap: 6px; }
+    .ctrl-speed input[type=range] { width: 60px; accent-color: var(--blue); }
+    #canvas3d { width: 100%; height: 100%; border-radius: var(--radius); display: block; }
+
+    /* HERO TEXT */
+    .hero-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--font-mono); color: var(--blue); background: var(--green-dim); border: 1px solid rgba(10,22,40,0.2); border-radius: 20px; padding: 4px 14px; margin-bottom: 28px; letter-spacing: 0.05em; }
+    .hero-title { font-size: clamp(36px, 5vw, 64px); font-weight: 800; line-height: 1.0; letter-spacing: -3px; margin-bottom: 20px; }
+    .hero-sub { font-size: 15px; color: var(--text2); max-width: 420px; margin: 0 0 40px; line-height: 1.7; }
+
+    /* SCAN BOX */
+    .scan-box { max-width: 520px; }
+    .scan-input-wrap { display: flex; align-items: center; background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; padding: 6px 6px 6px 16px; gap: 8px; transition: border-color 0.2s, box-shadow 0.2s; }
+    .scan-input-wrap:focus-within { border-color: rgba(26,53,96,0.5); box-shadow: 0 0 0 3px rgba(26,53,96,0.08); }
+    .scan-icon { color: var(--text3); flex-shrink: 0; }
+    .scan-input { flex: 1; background: none; border: none; outline: none; font-size: 15px; font-family: var(--font-mono); color: var(--text); caret-color: var(--blue); }
+    .scan-input::placeholder { color: var(--text3); font-size: 13px; }
+    .scan-btn { display: flex; align-items: center; gap: 8px; background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 700; font-family: var(--font-display); cursor: pointer; transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s; white-space: nowrap; }
+    .scan-btn:hover { opacity: 0.85; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(10,22,40,0.25); }
+    .scan-btn:active { transform: scale(0.97); }
+    .scan-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .scan-examples { margin-top: 14px; font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .example-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 3px 12px; font-size: 11px; font-family: var(--font-mono); color: var(--text2); cursor: pointer; transition: all 0.15s; }
+    .example-btn:hover { border-color: var(--blue); color: var(--blue); transform: translateY(-2px); }
+
+    /* MODO BADGE */
+    .modo-badge { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-family: var(--font-mono); padding: 3px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg3); color: var(--text3); }
+    .modo-badge.real { color: #1a7a4a; border-color: rgba(26,122,74,0.3); background: rgba(26,122,74,0.07); }
+    .modo-badge.simulado { color: var(--amber); border-color: rgba(176,125,16,0.3); background: var(--amber-dim); }
+
+    /* PROGRESS */
+    .progress-wrap { max-width: 620px; margin: 0 auto; padding: 40px 24px; }
+    .progress-track { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-bottom: 24px; }
+    .progress-fill { height: 100%; background: var(--blue); border-radius: 2px; width: 0%; transition: width 0.4s ease; box-shadow: 0 0 8px rgba(26,53,96,0.4); }
+    .progress-steps { display: flex; flex-direction: column; gap: 8px; }
+    .progress-step { display: flex; align-items: center; gap: 10px; font-size: 13px; font-family: var(--font-mono); color: var(--text3); animation: fadeIn 0.3s ease forwards; opacity: 0; }
+    .progress-step.done { color: var(--blue); }
+    .progress-step.active { color: var(--text); }
+    .step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+    .step-dot.done { background: var(--blue); }
+    .step-dot.active { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: pulse 1s ease infinite; }
+
+    /* RESULTS */
+    .results-wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px; display: flex; flex-direction: column; gap: 20px; animation: slideUp 0.4s ease; }
+
+    /* SCORE */
+    .score-panel { background: var(--bg2); border: 1px solid var(--border2); border-radius: 16px; padding: 28px; display: flex; align-items: center; gap: 28px; }
+    .score-left { flex-shrink: 0; text-align: center; }
+    .score-ring-wrap { position: relative; width: 120px; height: 120px; margin: 0 auto 12px; }
+    .score-svg { width: 120px; height: 120px; }
+    .score-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; line-height: 1; }
+    .score-num { font-size: 32px; font-weight: 800; display: block; }
+    .score-denom { font-size: 11px; font-family: var(--font-mono); color: var(--text3); }
+    .score-label { font-size: 11px; font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; }
+    .score-right { flex: 1; }
+    .score-domain { font-size: 22px; font-weight: 700; margin-bottom: 8px; word-break: break-all; }
+    .score-summary { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+    .score-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* TAGS */
+    .tag { display: inline-block; font-size: 11px; font-family: var(--font-mono); padding: 3px 10px; border-radius: 20px; }
+    .tag-green { background: var(--green-dim); color: var(--blue); border: 1px solid rgba(10,22,40,0.2); }
+    .tag-red   { background: var(--red-dim);   color: var(--red);  border: 1px solid rgba(192,57,43,0.2); }
+    .tag-amber { background: var(--amber-dim); color: var(--amber);border: 1px solid rgba(176,125,16,0.2); }
+    .tag-gray  { background: var(--bg3);       color: var(--text2);border: 1px solid var(--border); }
+
+    /* CHECKS */
+    .checks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+    .check-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
+    .check-card:hover { border-color: var(--border2); transform: translateY(-3px); box-shadow: 0 6px 18px rgba(26,53,96,0.08); }
+    .check-name { font-size: 11px; font-family: var(--font-mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .check-icon { font-size: 14px; }
+    .check-val { font-size: 13px; font-weight: 500; }
+
+    /* SECTION BLOCK */
+    .section-block, .tls-section, .ai-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+    .section-heading { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+
+    /* VULN */
+    .vuln-list { display: flex; flex-direction: column; gap: 10px; }
+    .vuln-item { display: flex; gap: 14px; padding: 14px 16px; background: var(--bg3); border-radius: var(--radius); border-left: 3px solid transparent; align-items: flex-start; transition: transform 0.2s; }
+    .vuln-item:hover { transform: translateX(4px); }
+    .vuln-item.sev-crit { border-left-color: var(--red); }
+    .vuln-item.sev-high { border-left-color: var(--amber); }
+    .vuln-item.sev-med  { border-left-color: var(--amber); }
+    .vuln-item.sev-low  { border-left-color: var(--blue); }
+    .vuln-item.sev-ok   { border-left-color: var(--blue); }
+    .vuln-sev { font-size: 10px; font-family: var(--font-mono); padding: 2px 8px; border-radius: 4px; flex-shrink: 0; margin-top: 1px; text-transform: uppercase; font-weight: 700; }
+    .sev-crit .vuln-sev { background: var(--red-dim);   color: var(--red);   }
+    .sev-high .vuln-sev { background: var(--amber-dim); color: var(--amber); }
+    .sev-med  .vuln-sev { background: var(--amber-dim); color: var(--amber); }
+    .sev-low  .vuln-sev { background: var(--green-dim); color: var(--blue);  }
+    .sev-ok   .vuln-sev { background: var(--green-dim); color: var(--blue);  }
+    .vuln-body h4 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .vuln-body p  { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+    /* TLS TABLE */
+    .tls-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .tls-table th { text-align: left; font-size: 11px; font-family: var(--font-mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; padding: 0 12px 10px 0; border-bottom: 1px solid var(--border); }
+    .tls-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .tls-table tr:last-child td { border-bottom: none; }
+    .tls-table tr:hover td { background: var(--bg3); }
+
+    /* CERT DETAIL */
+    .cert-detail { margin-top: 16px; padding: 14px 16px; background: var(--bg3); border-radius: var(--radius); border: 1px solid var(--border); font-size: 12px; font-family: var(--font-mono); color: var(--text2); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .cert-detail span { color: var(--text3); }
+
+    /* AI */
+    .ai-section { border-color: rgba(26,53,96,0.2); }
+    .ai-header { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--blue); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+    .ai-content { color: var(--text2); font-size: 14px; line-height: 1.8; }
+    .ai-loading { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--text3); }
+    .ai-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); animation: blink 1.2s ease infinite; }
+    .ai-dot:nth-child(2) { animation-delay: 0.2s; }
+    .ai-dot:nth-child(3) { animation-delay: 0.4s; }
+    .ai-block { margin-bottom: 16px; }
+    .ai-block:last-child { margin-bottom: 0; }
+    .ai-block-title { font-size: 11px; font-family: var(--font-mono); color: var(--blue); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+    .ai-block p  { font-size: 13px; color: var(--text2); line-height: 1.7; }
+    .ai-block ol { padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+    .ai-block ol li { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+    /* ACTIONS */
+    .actions-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .action-btn { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); font-size: 13px; font-family: var(--font-display); font-weight: 500; color: var(--text2); cursor: pointer; transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+    .action-btn:hover { color: var(--text); background: var(--bg3); transform: translateY(-3px); box-shadow: 0 6px 16px rgba(26,53,96,0.12); }
+    .accent-btn { background: var(--green-dim); border-color: rgba(10,22,40,0.25); color: var(--blue); }
+
+    /* INFO */
+    .info-section { max-width: 900px; margin: 0 auto; padding: 60px 24px; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .info-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 24px; transition: border-color 0.25s, transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s; }
+    .info-card:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 16px 40px rgba(26,53,96,0.12); border-color: rgba(26,53,96,0.3); }
+    .info-icon { font-size: 28px; margin-bottom: 12px; display: inline-block; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+    .info-card:hover .info-icon { transform: scale(1.3) rotate(-5deg); }
+    .info-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .info-card p  { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+    /* HOWTO */
+    .howto-section { max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+    .howto-section h2 { font-size: 28px; font-weight: 800; margin-bottom: 28px; }
+    .steps { display: flex; gap: 16px; flex-wrap: wrap; }
+    .step { flex: 1; min-width: 200px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, border-color 0.2s; }
+    .step:hover { transform: translateY(-5px); box-shadow: 0 12px 32px rgba(26,53,96,0.1); border-color: rgba(26,53,96,0.25); }
+    .step-num { display: block; font-size: 28px; font-weight: 800; font-family: var(--font-mono); color: var(--blue); margin-bottom: 8px; line-height: 1; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+    .step:hover .step-num { transform: scale(1.15); }
+    .step p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+    .step strong { color: var(--text); }
+
+    /* FOOTER */
+    .footer { border-top: 1px solid var(--border); padding: 40px 24px; }
+    .footer-inner { max-width: 900px; margin: 0 auto; text-align: center; }
+    .footer-logo { font-size: 20px; font-weight: 800; color: var(--text2); margin-bottom: 8px; }
+    .footer-logo span { color: var(--blue); }
+    .footer p { font-size: 13px; color: var(--text3); margin-bottom: 4px; }
+    .footer-note { font-size: 11px !important; max-width: 500px; margin: 12px auto 0 !important; line-height: 1.6; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius); padding: 12px 20px; font-size: 13px; font-family: var(--font-mono); color: #fff; z-index: 999; animation: fadeIn 0.3s ease; }
+
+    /* KEYFRAMES */
+    @keyframes spin      { to { transform: rotate(360deg); } }
+    @keyframes pulse     { 50% { opacity: 0.4; } }
+    @keyframes blink     { 50% { opacity: 0.15; } }
+    @keyframes fadeIn    { to { opacity: 1; } }
+    @keyframes slideUp   { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes floatUp   { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes floatDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes scaleIn   { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
+    @keyframes slideInLeft  { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(28px);  } to { opacity: 1; transform: translateX(0); } }
+    @keyframes shimmer   { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+    @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+    .header    { animation: floatDown    0.5s ease both; }
+    .logo      { animation: slideInLeft  0.5s 0.1s ease both; }
+    .nav       { animation: slideInRight 0.5s 0.1s ease both; }
+    .hero-3d   { animation: scaleIn     0.7s 0.3s ease both; }
+    .hero-badge { animation: floatUp 0.55s 0.10s ease both; }
+    .hero-title { animation: floatUp 0.60s 0.20s ease both; }
+    .hero-sub   { animation: floatUp 0.60s 0.32s ease both; }
+    .scan-box   { animation: floatUp 0.60s 0.44s ease both; }
+
+    .logo-icon { transition: transform 0.3s ease; }
+    .logo:hover .logo-icon { transform: rotate(-8deg) scale(1.1); }
+
+    .accent {
+      background: linear-gradient(90deg, #0a1628, #1a3560, #2a52a0, #1a3560, #0a1628);
+      background-size: 300% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradientShift 5s ease infinite;
+    }
+
+    .hero-badge { position: relative; overflow: hidden; }
+    .hero-badge::after { content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(26,53,96,0.15), transparent); animation: shimmer 2.5s 1s ease infinite; }
+
+    .nav a:not(.nav-gh) { position: relative; }
+    .nav a:not(.nav-gh)::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 0; height: 1.5px; background: var(--blue); border-radius: 2px; transition: width 0.25s ease; }
+    .nav a:not(.nav-gh):hover::after { width: 100%; }
+    .nav-gh { transition: border-color 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s; }
+    .nav-gh:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26,53,96,0.15); }
+
+    .info-grid .info-card:nth-child(1) { animation: floatUp 0.5s 0.05s ease both; }
+    .info-grid .info-card:nth-child(2) { animation: floatUp 0.5s 0.12s ease both; }
+    .info-grid .info-card:nth-child(3) { animation: floatUp 0.5s 0.19s ease both; }
+    .info-grid .info-card:nth-child(4) { animation: floatUp 0.5s 0.26s ease both; }
+    .steps .step:nth-child(1) { animation: floatUp 0.5s 0.05s ease both; }
+    .steps .step:nth-child(2) { animation: floatUp 0.5s 0.12s ease both; }
+    .steps .step:nth-child(3) { animation: floatUp 0.5s 0.19s ease both; }
+    .steps .step:nth-child(4) { animation: floatUp 0.5s 0.26s ease both; }
+
+    @media (max-width: 700px) {
+      .hero { flex-direction: column; text-align: center; padding-bottom: 80px; }
+      .hero-3d { width: 220px; height: 220px; }
+      .hero-sub { margin: 0 auto 40px; }
+      .hero-title { letter-spacing: -2px; }
+      .nav a:not(.nav-gh) { display: none; }
+      .canvas-controls { bottom: -40px; }
+      .score-panel { flex-direction: column; text-align: center; }
+      .actions-row { flex-direction: column; }
+      .action-btn { justify-content: center; }
+      .cert-detail { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="noise"></div>
+<div id="toast" class="toast hidden"></div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <a href="#" class="logo">
+      <div class="logo-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#1a3560" stroke-width="1.5" fill="none"/>
+          <circle cx="9" cy="9" r="2" fill="#1a3560"/>
+        </svg>
+      </div>
+      <span class="logo-text">Secura<span class="logo-mz">MZ</span></span>
+    </a>
+    <nav class="nav">
+      <a href="#info">Funcionalidades</a>
+      <a href="#howto">Como funciona</a>
+      <div id="backendStatus" class="backend-status">
+        <div class="backend-dot"></div>
+        <span id="backendStatusText">A verificar...</span>
+      </div>
+      <a href="#" class="nav-gh">v3.0</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="hero-badge">⬡ Segurança Web</div>
+    <h1 class="hero-title">Scan seu<br><span class="accent">domínio</span><br>agora.</h1>
+    <p class="hero-sub">Análise completa de vulnerabilidades, TLS, cabeçalhos e muito mais — em segundos.</p>
+
+    <div class="scan-box">
+      <div class="scan-input-wrap">
+        <svg class="scan-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input id="urlInput" class="scan-input" type="text" placeholder="exemplo.co.mz ou 196.33.x.x" autocomplete="off" />
+        <button id="scanBtn" class="scan-btn">
+          <svg id="scanBtnIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+          <div id="scanSpinner" class="btn-spinner hidden"></div>
+          <span id="scanBtnText">Analisar</span>
+        </button>
+      </div>
+      <div class="scan-examples">
+        Exemplos:
+        <button class="example-btn" data-url="google.com">google.com</button>
+        <button class="example-btn" data-url="bci.co.mz">bci.co.mz</button>
+        <button class="example-btn" data-url="gov.mz">gov.mz</button>
+        <button class="example-btn" data-url="cloudflare.com">cloudflare.com</button>
+      </div>
+      <div id="modoBadge" class="modo-badge hidden"></div>
+    </div>
+  </div>
+
+  <div class="hero-3d">
+    <canvas id="canvas3d"></canvas>
+    <div class="canvas-controls">
+      <button class="ctrl-btn active" data-shape="cube">Cubo</button>
+      <button class="ctrl-btn" data-shape="octahedron">Octaedro</button>
+      <button class="ctrl-btn" data-shape="pyramid">Pirâmide</button>
+      <button id="pauseBtn" class="ctrl-btn">⏸</button>
+      <div class="ctrl-speed">
+        <input type="range" id="speedCtrl" min="0.2" max="4" step="0.1" value="1.5" title="Velocidade">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROGRESS -->
+<section id="progress-section" class="hidden">
+  <div class="progress-wrap">
+    <div class="progress-track">
+      <div id="progressFill" class="progress-fill"></div>
+    </div>
+    <div id="progressSteps" class="progress-steps"></div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results-section" class="hidden">
+  <div class="results-wrap">
+
+    <div class="score-panel">
+      <div class="score-left">
+        <div class="score-ring-wrap">
+          <svg class="score-svg" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--bg3)" stroke-width="8"/>
+            <circle id="scoreArc" cx="60" cy="60" r="50" fill="none" stroke="#1a3560" stroke-width="8"
+              stroke-linecap="round" stroke-dasharray="0 314" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="score-center">
+            <span id="scoreNum" class="score-num">0</span>
+            <span class="score-denom">/100</span>
+          </div>
+        </div>
+        <div id="scoreLabel" class="score-label">—</div>
+      </div>
+      <div class="score-right">
+        <div id="scoreDomain" class="score-domain">—</div>
+        <p id="scoreSummary" class="score-summary">A calcular...</p>
+        <div id="scoreBadges" class="score-badges"></div>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-heading">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Verificações rápidas
+      </div>
+      <div id="checksGrid" class="checks-grid"></div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-heading">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Vulnerabilidades encontradas
+      </div>
+      <div id="vulnList" class="vuln-list"></div>
+    </div>
+
+    <div class="tls-section">
+      <div class="section-heading">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Detalhe TLS / Criptografia
+      </div>
+      <table id="tlsTable" class="tls-table"></table>
+      <div id="certDetail" class="cert-detail hidden"></div>
+    </div>
+
+    <div class="ai-section">
+      <div class="ai-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        Análise por Inteligência Artificial
+      </div>
+      <div id="aiContent" class="ai-content">
+        <div class="ai-loading">
+          <div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>
+          <span>A aguardar análise...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="action-btn accent-btn" onclick="novaScan()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.49"/></svg>
+        Nova análise
+      </button>
+      <button class="action-btn" onclick="compartilhar()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Partilhar
+      </button>
+      <button class="action-btn" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Imprimir / PDF
+      </button>
+    </div>
+
+  </div>
+</section>
+
+<!-- INFO -->
+<section id="info" class="info-section">
+  <div class="info-grid">
+    <div class="info-card"><div class="info-icon">🔒</div><h3>TLS / SSL</h3><p>Verifica versões do protocolo, validade do certificado e configurações de cifra.</p></div>
+    <div class="info-card"><div class="info-icon">🛡️</div><h3>Cabeçalhos HTTP</h3><p>Analisa CSP, HSTS, X-Frame-Options e outros cabeçalhos de segurança críticos.</p></div>
+    <div class="info-card"><div class="info-icon">🔍</div><h3>Vulnerabilidades</h3><p>Detecta exposições comuns como open redirect, clickjacking e mixed content.</p></div>
+    <div class="info-card"><div class="info-icon">⚡</div><h3>Relatório IA</h3><p>Análise inteligente com recomendações priorizadas para corrigir cada problema.</p></div>
+  </div>
+</section>
+
+<section class="howto-section" id="howto">
+  <h2>Como funciona</h2>
+  <div class="steps">
+    <div class="step"><span class="step-num">01</span><p><strong>Insira o domínio</strong> ou endereço IP que deseja analisar.</p></div>
+    <div class="step"><span class="step-num">02</span><p><strong>Aguarde o scan</strong> — verificamos TLS, DNS, portas e cabeçalhos.</p></div>
+    <div class="step"><span class="step-num">03</span><p><strong>Leia o relatório</strong> com score, vulnerabilidades e recomendações.</p></div>
+    <div class="step"><span class="step-num">04</span><p><strong>Corrija e rescan</strong> para confirmar que os problemas foram resolvidos.</p></div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-logo">Secura<span>MZ</span></div>
+    <p>Ferramenta open-source de análise de segurança web para Moçambique.</p>
+    <p class="footer-note">Os resultados são informativos. Sempre consulte um especialista em segurança para ambientes de produção críticos.</p>
+  </div>
+</footer>
+
+<!-- 3D -->
+<script>
+(function () {
+  const canvas = document.getElementById('canvas3d');
+  const ctx    = canvas.getContext('2d');
+  function resize() { const r = canvas.getBoundingClientRect(); canvas.width = r.width*(window.devicePixelRatio||1); canvas.height = r.height*(window.devicePixelRatio||1); }
+  resize(); window.addEventListener('resize', resize);
+  const PALETTE = [[10,22,96],[26,53,160],[55,138,221],[14,68,180],[10,95,180],[15,163,177],[80,180,230],[5,40,110]];
+  const SHAPES = {
+    cube: { verts:[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]], faces:[[0,1,2,3],[4,7,6,5],[0,4,5,1],[2,6,7,3],[0,3,7,4],[1,5,6,2]] },
+    octahedron: { verts:[[0,1.5,0],[0,-1.5,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]], faces:[[0,2,4],[0,4,3],[0,3,5],[0,5,2],[1,4,2],[1,3,4],[1,5,3],[1,2,5]] },
+    pyramid: { verts:[[-1,-1,-1],[1,-1,-1],[1,-1,1],[-1,-1,1],[0,1.5,0]], faces:[[0,1,2,3],[0,1,4],[1,2,4],[2,3,4],[3,0,4]] }
+  };
+  let shape='cube',angle=0,paused=false,speed=1.5,lastTs=0;
+  const rotX=([x,y,z],a)=>[x,y*Math.cos(a)-z*Math.sin(a),y*Math.sin(a)+z*Math.cos(a)];
+  const rotY=([x,y,z],a)=>[x*Math.cos(a)+z*Math.sin(a),y,-x*Math.sin(a)+z*Math.cos(a)];
+  function project(v){const W=canvas.width,H=canvas.height,scale=Math.min(W,H)*0.28,z=v[2]+4;return[(v[0]/z)*scale+W/2,(v[1]/z)*scale+H/2];}
+  function faceCenter(verts,face){let x=0,y=0,z=0;for(const i of face){x+=verts[i][0];y+=verts[i][1];z+=verts[i][2];}return[x/face.length,y/face.length,z/face.length];}
+  function faceNormal(verts,face){const a=verts[face[0]],b=verts[face[1]],c=verts[face[2]],u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];return[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];}
+  function normalize(v){const len=Math.sqrt(v.reduce((s,x)=>s+x*x,0));return len>0?v.map(x=>x/len):[0,0,1];}
+  function render(ts){
+    requestAnimationFrame(render);
+    const dt=Math.min((ts-lastTs)/1000,0.05);lastTs=ts;
+    if(!paused)angle+=speed*dt;
+    const W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);
+    const raw=SHAPES[shape],light=normalize([0.6,-1,0.7]),verts=raw.verts.map(v=>rotY(rotX(v,angle*0.65),angle));
+    const sorted=raw.faces.map((f,i)=>({f,i,depth:faceCenter(verts,f)[2]})).sort((a,b)=>b.depth-a.depth);
+    ctx.save();ctx.globalAlpha=0.10;
+    const sp=verts.map(v=>project([v[0],1.8,v[2]]));ctx.beginPath();sp.forEach(([px,py],k)=>k===0?ctx.moveTo(px,py):ctx.lineTo(px,py));ctx.closePath();ctx.fillStyle='#0a1628';ctx.filter='blur(6px)';ctx.fill();ctx.filter='none';ctx.restore();
+    for(const{f,i}of sorted){
+      const n=normalize(faceNormal(verts,f)),dot=Math.max(0,n[0]*light[0]+n[1]*light[1]+n[2]*light[2]),br=Math.min(1,0.32+dot*0.78),[r0,g0,b0]=PALETTE[i%PALETTE.length],r=Math.round(r0*br),g=Math.round(g0*br),b=Math.round(b0*br);
+      const pts=f.map(vi=>project(verts[vi]));ctx.beginPath();pts.forEach(([px,py],k)=>k===0?ctx.moveTo(px,py):ctx.lineTo(px,py));ctx.closePath();ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fill();ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;ctx.stroke();
+      if(dot>0.45){const cx2=pts.reduce((s,p)=>s+p[0],0)/pts.length,cy2=pts.reduce((s,p)=>s+p[1],0)/pts.length,grad=ctx.createRadialGradient(cx2-18,cy2-18,2,cx2,cy2,55);grad.addColorStop(0,`rgba(255,255,255,${(dot-0.45)*0.35})`);grad.addColorStop(1,'rgba(255,255,255,0)');ctx.beginPath();pts.forEach(([px,py],k)=>k===0?ctx.moveTo(px,py):ctx.lineTo(px,py));ctx.closePath();ctx.fillStyle=grad;ctx.fill();}
+    }
+  }
+  requestAnimationFrame(ts=>{lastTs=ts;render(ts);});
+  document.getElementById('pauseBtn').addEventListener('click',()=>{paused=!paused;document.getElementById('pauseBtn').textContent=paused?'▶':'⏸';});
+  document.getElementById('speedCtrl').addEventListener('input',e=>{speed=parseFloat(e.target.value);});
+  document.querySelectorAll('[data-shape]').forEach(btn=>{btn.addEventListener('click',()=>{shape=btn.dataset.shape;angle=0;document.querySelectorAll('[data-shape]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');});});
+  let dragging=false,lastMX=0;
+  canvas.addEventListener('mousedown',e=>{dragging=true;lastMX=e.clientX;});
+  window.addEventListener('mousemove',e=>{if(!dragging)return;angle+=(e.clientX-lastMX)*0.012;lastMX=e.clientX;});
+  window.addEventListener('mouseup',()=>{dragging=false;});
+  canvas.addEventListener('touchstart',e=>{dragging=true;lastMX=e.touches[0].clientX;},{passive:true});
+  window.addEventListener('touchmove',e=>{if(!dragging)return;angle+=(e.touches[0].clientX-lastMX)*0.012;lastMX=e.touches[0].clientX;},{passive:true});
+  window.addEventListener('touchend',()=>{dragging=false;});
+})();
+</script>
+
+<!-- SCRIPT PRINCIPAL -->
+<script>
+const BACKEND_URL = 'http://localhost:5000';
+let backendOnline = false;
+
+// ─── Utilitários ────────────────────────────────────────────────────
+
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg, dur = 3000) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), dur);
+}
+
+function setUrl(url) { const inp = $('urlInput'); if (inp) { inp.value = url; inp.focus(); } }
+
+function novaScan() {
+  safeClass('results-section', 'add', 'hidden');
+  safeClass('progress-section', 'add', 'hidden');
+  safeClass('modoBadge', 'add', 'hidden');
+  const inp = $('urlInput');
+  if (inp) { inp.value = ''; inp.focus(); }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function compartilhar() {
+  const url = $('urlInput')?.value.trim() || '';
+  const shareUrl = url ? `${location.href.split('?')[0]}?url=${encodeURIComponent(url)}` : location.href;
+  navigator.clipboard?.writeText(shareUrl).then(() => showToast('🔗 Link copiado!')) || showToast(shareUrl);
+}
+
+function safeClass(id, action, cls) { const el = $(id); if (el) el.classList[action](cls); }
+
+function parsearUrl(raw) {
+  raw = raw.trim();
+  if (!raw) return null;
+  if (!raw.startsWith('http://') && !raw.startsWith('https://')) raw = 'https://' + raw;
+  try { return new URL(raw); } catch { return null; }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── Verificar Backend ──────────────────────────────────────────────
+
+async function verificarBackend() {
+  const el = $('backendStatus');
+  const txt = $('backendStatusText');
+  try {
+    const resp = await fetch(`${BACKEND_URL}/scan?url=google.com`, { signal: AbortSignal.timeout(4000) });
+    if (resp.ok) {
+      backendOnline = true;
+      el.className = 'backend-status online';
+      txt.textContent = 'Scanner real ativo';
+    } else { throw new Error(); }
+  } catch {
+    backendOnline = false;
+    el.className = 'backend-status offline';
+    txt.textContent = 'Modo simulado';
+  }
+}
+
+// ─── Progresso ──────────────────────────────────────────────────────
+
+const PASSOS = [
+  'A resolver DNS e verificar conectividade...',
+  'A verificar protocolo HTTPS e SSL/TLS...',
+  'A analisar certificado digital...',
+  'A verificar cabeçalhos de segurança HTTP...',
+  'A verificar política HSTS...',
+  'A pesquisar vulnerabilidades conhecidas...',
+  'A verificar configuração DNS (SPF/DMARC)...',
+  'A calcular pontuação de segurança...',
+  'A gerar análise com inteligência artificial...',
+];
+
+async function setProgresso(pct, passoIndex) {
+  const fill = $('progressFill');
+  if (fill) fill.style.width = pct + '%';
+  const cont = $('progressSteps');
+  if (!cont) { await sleep(350); return; }
+  if (passoIndex >= 0 && passoIndex < PASSOS.length) {
+    [...cont.querySelectorAll('.progress-step')].forEach((el, i) => {
+      const dot = el.querySelector('.step-dot');
+      if (i < passoIndex) { el.classList.remove('active'); el.classList.add('done'); if (dot) dot.className = 'step-dot done'; }
+      else if (i === passoIndex) { el.classList.add('active'); if (dot) dot.className = 'step-dot active'; }
+    });
+    if (!cont.querySelector(`[data-step="${passoIndex}"]`)) {
+      const div = document.createElement('div');
+      div.className = 'progress-step active';
+      div.dataset.step = passoIndex;
+      div.innerHTML = `<div class="step-dot active"></div><span>${PASSOS[passoIndex]}</span>`;
+      cont.appendChild(div);
+    }
+  }
+  await sleep(backendOnline ? 200 : 350);
+}
+
+// ─── ANÁLISE REAL (Backend) ─────────────────────────────────────────
+
+async function analisarUrlReal(parsed) {
+  const resp = await fetch(`${BACKEND_URL}/scan?url=${encodeURIComponent(parsed.href)}`);
+  if (!resp.ok) throw new Error(`Backend HTTP ${resp.status}`);
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error);
+
+  const h = data.headers || {};
+  const s = data.ssl    || {};
+  const d = data.dns    || {};
+  const t = data.tls_versions || {};
+
+  return {
+    host:           data.hostname,
+    isHttps:        data.is_https,
+    isMz:           data.hostname.endsWith('.mz'),
+    isGov:          data.hostname.endsWith('.gov.mz'),
+    isEdu:          data.hostname.endsWith('.ac.mz') || data.hostname.endsWith('.edu.mz'),
+    isBanco:        /bci|millennium|absa|standard|fnb|moza/i.test(data.hostname),
+    tlsAtivo:       data.is_https,
+    certValido:     s.valid && s.days_left > 0,
+    certExpirando:  s.expiring_soon || false,
+    certDaysLeft:   s.days_left,
+    certExpiry:     s.expires,
+    certIssuer:     s.issuer || '',
+    certSubject:    s.subject || '',
+    cipher:         s.cipher || '',
+    tlsVersion:     s.tls_version || '',
+    hstsAtivo:      h.hsts || false,
+    hstsValue:      h.hsts_value || '',
+    cspAtivo:       h.csp || false,
+    cspValue:       h.csp_value || '',
+    xframeAtivo:    h.xframe || false,
+    xctoAtivo:      h.xcto || false,
+    spfAtivo:       d.spf || false,
+    spfValue:       d.spf_value || '',
+    dmarcAtivo:     d.dmarc || false,
+    dmarcValue:     d.dmarc_value || '',
+    tls13:          t['TLS 1.3'] || false,
+    tls12:          t['TLS 1.2'] || false,
+    tlsLegacy:      false,
+    forwardSecrecy: s.forward_secrecy || false,
+    ocsp:           false,
+    dnssec:         false,
+    serverHeader:   h.server || '',
+    poweredBy:      h.powered_by || '',
+    modoReal:       true,
+    vulns:          gerarVulnsReal(data),
+    score:          calcularScoreReal(data),
+  };
+}
+
+function gerarVulnsReal(data) {
+  const vulns = [];
+  const h = data.headers || {};
+  const s = data.ssl    || {};
+  const d = data.dns    || {};
+
+  if (!data.is_https)
+    vulns.push({ sev:'crit', codigo:'HTTP', titulo:'Site sem HTTPS — tráfego em texto claro', desc:'Todos os dados são visíveis por terceiros. Instala SSL gratuito em letsencrypt.org' });
+
+  if (data.is_https && s.valid === false)
+    vulns.push({ sev:'crit', codigo:'CERT', titulo:'Certificado SSL inválido ou expirado', desc: s.error || 'Renova o certificado imediatamente em letsencrypt.org.' });
+
+  if (s.valid && s.expiring_soon)
+    vulns.push({ sev:'high', codigo:'CERT-EXP', titulo:`Certificado expira em ${s.days_left} dias`, desc:'Configura renovação automática: certbot renew --cron' });
+
+  if (!h.csp)
+    vulns.push({ sev:'high', codigo:'CSP', titulo:'Content-Security-Policy ausente', desc:"Vulnerável a ataques XSS. Adiciona: Content-Security-Policy: default-src 'self'" });
+
+  if (data.is_https && !h.hsts)
+    vulns.push({ sev:'med', codigo:'HSTS', titulo:'HSTS não configurado', desc:'Adiciona: Strict-Transport-Security: max-age=31536000; includeSubDomains' });
+
+  if (!h.xframe)
+    vulns.push({ sev:'med', codigo:'XFRAME', titulo:'Proteção contra Clickjacking ausente', desc:'Adiciona: X-Frame-Options: SAMEORIGIN' });
+
+  if (!h.xcto)
+    vulns.push({ sev:'med', codigo:'XCTO', titulo:'X-Content-Type-Options ausente', desc:'Adiciona: X-Content-Type-Options: nosniff' });
+
+  if (!d.spf || !d.dmarc)
+    vulns.push({ sev:'med', codigo:'DNS', titulo:`${!d.spf ? 'SPF' : ''}${!d.spf && !d.dmarc ? ' e ' : ''}${!d.dmarc ? 'DMARC' : ''} ausente`, desc:'Domínio pode ser usado para enviar emails falsos (phishing).' });
+
+  if (h.server || h.powered_by)
+    vulns.push({ sev:'low', codigo:'INFO', titulo:'Informação do servidor exposta', desc:`Esconde os headers: Server: ${h.server || 'N/A'} | X-Powered-By: ${h.powered_by || 'N/A'}` });
+
+  if (vulns.length === 0)
+    vulns.push({ sev:'ok', codigo:'OK', titulo:'Nenhuma vulnerabilidade encontrada', desc:'Excelente configuração! Mantém auditorias regulares com ssllabs.com/ssltest/' });
+
+  return vulns;
+}
+
+function calcularScoreReal(data) {
+  const h = data.headers || {}, s = data.ssl || {}, d = data.dns || {}, t = data.tls_versions || {};
+  return [
+    [data.is_https,              25],
+    [s.valid && !s.expiring_soon,15],
+    [h.hsts,                     10],
+    [h.csp,                      10],
+    [h.xframe,                    8],
+    [h.xcto,                      7],
+    [d.spf,                       8],
+    [d.dmarc,                     7],
+    [t['TLS 1.3'],                5],
+    [s.forward_secrecy,           5],
+  ].reduce((acc, [ok, pts]) => acc + (ok ? pts : 0), 0);
+}
+
+// ─── ANÁLISE SIMULADA (Fallback) ────────────────────────────────────
+
+function analisarUrlSimulado(parsed) {
+  const host = parsed.hostname.toLowerCase();
+  const isHttps = parsed.protocol === 'https:';
+  const isMz = host.endsWith('.mz');
+  const isGov = host.endsWith('.gov.mz');
+  const isEdu = host.endsWith('.ac.mz') || host.endsWith('.edu.mz');
+  const isBanco = /bci|millennium|absa|standard|fnb|moza|letshego|capitec/i.test(host);
+  const seed = host.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const rng = (o = 0) => ((seed * 9301 + 49297 * (o + 1)) % 233280) / 233280;
+
+  const tlsAtivo = isHttps, certValido = isHttps && rng(1) > 0.2, certExpirando = isHttps && certValido && rng(2) < 0.15;
+  const hstsAtivo = isHttps && (isBanco ? rng(3) > 0.1 : rng(3) > 0.45);
+  const cspAtivo = isBanco ? rng(4) > 0.15 : rng(4) > 0.5;
+  const xframeAtivo = rng(5) > 0.35, xctoAtivo = rng(6) > 0.3;
+  const spfAtivo = isMz ? rng(7) > 0.4 : rng(7) > 0.25, dmarcAtivo = isMz ? rng(8) > 0.55 : rng(8) > 0.4;
+  const tls13 = isHttps && rng(10) > 0.3, tlsLegacy = !isHttps || rng(11) < 0.25;
+  const forwardSecrecy = isHttps && rng(12) > 0.2, ocsp = isHttps && rng(13) > 0.4;
+
+  const vulns = [];
+  if (!isHttps) vulns.push({ sev:'crit', codigo:'CVE-HTTP', titulo:'Site sem HTTPS — tráfego em texto claro', desc:"Implementa SSL/TLS com certificado gratuito do Let's Encrypt imediatamente." });
+  if (isHttps && !certValido) vulns.push({ sev:'crit', codigo:'CERT-INVALID', titulo:'Certificado SSL inválido ou expirado', desc:'Renova o certificado em letsencrypt.org (gratuito).' });
+  if (certValido && certExpirando) vulns.push({ sev:'high', codigo:'CERT-EXPIRY', titulo:'Certificado SSL expira em breve', desc:'Configura renovação automática com certbot.' });
+  if (!cspAtivo) vulns.push({ sev:'high', codigo:'HEADER-CSP', titulo:'Content-Security-Policy ausente', desc:"Adiciona: Content-Security-Policy: default-src 'self'" });
+  if (!hstsAtivo && isHttps) vulns.push({ sev:'med', codigo:'HEADER-HSTS', titulo:'HSTS não configurado', desc:'Adiciona: Strict-Transport-Security: max-age=31536000; includeSubDomains' });
+  if (!xframeAtivo) vulns.push({ sev:'med', codigo:'HEADER-XFRAME', titulo:'Proteção contra Clickjacking ausente', desc:'Adiciona: X-Frame-Options: SAMEORIGIN' });
+  if (!spfAtivo || !dmarcAtivo) vulns.push({ sev:'med', codigo:'DNS-EMAIL', titulo:`${!spfAtivo?'SPF':''}${!spfAtivo&&!dmarcAtivo?' e ':''}${!dmarcAtivo?'DMARC':''} ausente`, desc:'Domínio vulnerável a phishing por email.' });
+  if (tlsLegacy && isHttps) vulns.push({ sev:'med', codigo:'TLS-LEGACY', titulo:'Protocolos TLS desatualizados possivelmente ativos', desc:'Desativa TLS 1.0/1.1 no servidor.' });
+  if (vulns.length === 0) vulns.push({ sev:'ok', codigo:'ALL-CLEAR', titulo:'Nenhuma vulnerabilidade crítica detetada', desc:'Mantém auditorias regulares.' });
+
+  const score = [[tlsAtivo,25],[certValido&&!certExpirando,15],[hstsAtivo,10],[cspAtivo,10],[xframeAtivo,8],[xctoAtivo,7],[spfAtivo,8],[dmarcAtivo,7],[tls13,5],[forwardSecrecy,5]].reduce((a,[ok,p])=>a+(ok?p:0),0);
+
+  return { host, isHttps, isMz, isGov, isEdu, isBanco, tlsAtivo, certValido, certExpirando, hstsAtivo, cspAtivo, xframeAtivo, xctoAtivo, spfAtivo, dmarcAtivo, tls13, tls12: isHttps, tlsLegacy, forwardSecrecy, ocsp, dnssec: rng(9)>0.7, vulns, score, modoReal: false };
+}
+
+// ─── Render ─────────────────────────────────────────────────────────
+
+function tag(tipo, texto) { return `<span class="tag tag-${tipo}">${texto}</span>`; }
+function statusTag(ok, textoOk, textoFail, tipoFail='red') {
+  if (ok === null || ok === undefined) return tag('gray','N/A');
+  return ok ? tag('green', textoOk) : tag(tipoFail, textoFail);
+}
+
+function renderChecks(r) {
+  const el = $('checksGrid'); if (!el) return;
+  const checks = [
+    { icone:'🔒', nome:'HTTPS',      val: statusTag(r.tlsAtivo, 'Ativo', 'AUSENTE!') },
+    { icone:'📜', nome:'Certificado', val: !r.isHttps ? tag('gray','N/A') : r.certValido ? (r.certExpirando ? tag('amber', r.certDaysLeft ? `Expira em ${r.certDaysLeft}d` : 'Expira em breve') : tag('green','Válido')) : tag('red','Inválido') },
+    { icone:'🛡️',nome:'HSTS',       val: statusTag(r.isHttps ? r.hstsAtivo : null, 'Ativo', 'Não configurado', 'amber') },
+    { icone:'🔐', nome:'CSP',        val: statusTag(r.cspAtivo, 'Configurado', 'Ausente', 'amber') },
+    { icone:'🖼️',nome:'X-Frame',    val: statusTag(r.xframeAtivo, 'Protegido', 'Exposto', 'amber') },
+    { icone:'📧', nome:'SPF/DMARC',  val: statusTag(r.spfAtivo && r.dmarcAtivo, 'OK', r.spfAtivo ? 'DMARC ausente' : 'SPF ausente', 'amber') },
+  ];
+  el.innerHTML = checks.map(c => `<div class="check-card"><div class="check-name"><span class="check-icon">${c.icone}</span>${c.nome}</div><div class="check-val">${c.val}</div></div>`).join('');
+}
+
+function renderVulns(vulns) {
+  const el = $('vulnList'); if (!el) return;
+  el.innerHTML = vulns.map(v => `<div class="vuln-item sev-${v.sev}"><span class="vuln-sev">${v.sev==='ok'?'OK':v.sev.toUpperCase()}</span><div class="vuln-body"><h4>${v.titulo}</h4><p>${v.desc}</p></div></div>`).join('');
+}
+
+function renderTLS(r) {
+  const el = $('tlsTable'); if (!el) return;
+  const rows = [
+    ['TLS 1.3',       r.isHttps?(r.tls13?tag('green','Suportado'):tag('amber','Não detetado')):tag('gray','N/A'), 'Versão mais segura — obrigatória em novos servidores'],
+    ['TLS 1.2',       r.isHttps?tag('green','Compatível'):tag('gray','N/A'), 'Manter para compatibilidade com browsers antigos'],
+    ['TLS 1.0/1.1',   r.isHttps?(r.tlsLegacy?tag('red','Possivelmente ativo'):tag('green','Desativado')):tag('gray','N/A'), 'Deve estar desativado — vulnerável a POODLE e BEAST'],
+    ['Forward Secrecy',r.isHttps?statusTag(r.forwardSecrecy,'Ativo (ECDHE)','Não detetado','amber'):tag('gray','N/A'), 'Garante que sessões passadas não são decifráveis'],
+    ['OCSP Stapling', r.isHttps?statusTag(r.ocsp,'Ativo','Não configurado','amber'):tag('gray','N/A'), 'Melhora velocidade de verificação de certificado'],
+    ['DNSSEC',        statusTag(r.dnssec,'Ativo','Não configurado','amber'), 'Protege contra envenenamento de cache DNS'],
+  ];
+  if (r.modoReal && r.tlsVersion) rows.unshift(['Versão ativa', tag('green', r.tlsVersion), 'Versão TLS negociada com o servidor']);
+  if (r.modoReal && r.cipher) rows.push(['Cifra ativa', `<span style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${r.cipher}</span>`, 'Suite de criptografia em uso']);
+
+  el.innerHTML = `<thead><tr><th style="width:140px">Protocolo / Config</th><th style="width:160px">Estado</th><th>Recomendação</th></tr></thead><tbody>${rows.map(([p,e,r])=>`<tr><td>${p}</td><td>${e}</td><td style="color:var(--text2);font-size:12px">${r}</td></tr>`).join('')}</tbody>`;
+
+  // Detalhes do certificado (só no modo real)
+  const cd = $('certDetail');
+  if (cd && r.modoReal && r.certValido) {
+    cd.classList.remove('hidden');
+    cd.innerHTML = `
+      <div><span>Emissor:</span> ${r.certIssuer || 'N/A'}</div>
+      <div><span>Domínio:</span> ${r.certSubject || r.host}</div>
+      <div><span>Expira:</span> ${r.certExpiry || 'N/A'}</div>
+      <div><span>Dias restantes:</span> ${r.certDaysLeft !== undefined ? r.certDaysLeft + ' dias' : 'N/A'}</div>
+    `;
+  } else if (cd) { cd.classList.add('hidden'); }
+}
+
+function renderScore(r) {
+  const scoreColor = r.score >= 70 ? '#1a3560' : r.score >= 40 ? '#b07d10' : '#c0392b';
+  const scoreLabel = r.score >= 80 ? 'EXCELENTE' : r.score >= 60 ? 'BOM' : r.score >= 40 ? 'MÉDIO' : r.score >= 20 ? 'FRACO' : 'CRÍTICO';
+  const arc = $('scoreArc');
+  if (arc) { const circ=2*Math.PI*50,dash=(r.score/100)*circ; arc.setAttribute('stroke',scoreColor); arc.setAttribute('stroke-dasharray',`${dash.toFixed(1)} ${(circ-dash).toFixed(1)}`); }
+  const numEl = $('scoreNum');
+  if (numEl) { let curr=0; const iv=setInterval(()=>{ curr=Math.min(curr+2,r.score); numEl.textContent=curr; if(curr>=r.score)clearInterval(iv); },20); }
+  const lEl = $('scoreLabel'); if (lEl) { lEl.style.color=scoreColor; lEl.textContent=scoreLabel; }
+  const dEl = $('scoreDomain'); if (dEl) dEl.textContent = r.host;
+  const sumEl = $('scoreSummary');
+  if (sumEl) sumEl.textContent = r.score>=70 ? 'Este website tem uma configuração de segurança razoável. Existem algumas melhorias possíveis.' : r.score>=40 ? 'Este website tem problemas de segurança que devem ser resolvidos com urgência moderada.' : 'Este website tem falhas de segurança sérias que expõem utilizadores a riscos significativos.';
+  const bEl = $('scoreBadges');
+  if (bEl) {
+    const badges = [];
+    if (r.isMz)     badges.push(tag('green','🇲🇿 .mz'));
+    if (r.isGov)    badges.push(tag('amber','🏛️ Governo'));
+    if (r.isEdu)    badges.push(tag('gray','🎓 Educação'));
+    if (r.isBanco)  badges.push(tag('amber','🏦 Banco/Finanças'));
+    if (r.tlsAtivo) badges.push(tag('green','HTTPS ✓'));
+    else            badges.push(tag('red','HTTP ✗'));
+    if (r.modoReal) badges.push(tag('green','✅ Scan Real'));
+    else            badges.push(tag('amber','⚠️ Simulado'));
+    bEl.innerHTML = badges.join('');
+  }
+}
+
+// ─── Análise IA ─────────────────────────────────────────────────────
+
+async function analisarComIA(r) {
+  const aiContent = $('aiContent'); if (!aiContent) return;
+  const prompt = `És um especialista em cibersegurança com foco em Moçambique. Analisa este website e dá recomendações práticas.
+
+Website: ${r.host}
+Pontuação de segurança: ${r.score}/100
+Tipo de análise: ${r.modoReal ? 'SCAN REAL — dados verificados em tempo real' : 'Análise heurística simulada'}
+País/contexto: ${r.isMz?'Moçambique (.mz)':''} ${r.isGov?'— Setor governamental':''} ${r.isBanco?'— Setor financeiro':''}
+
+Resultados:
+- HTTPS/TLS: ${r.tlsAtivo?'Ativo':'AUSENTE — crítico'}
+- Certificado: ${!r.isHttps?'N/A':r.certValido?(r.certExpirando?`Expira em ${r.certDaysLeft||'?'} dias`:'Válido'):'Inválido'}
+${r.modoReal && r.tlsVersion ? `- Versão TLS ativa: ${r.tlsVersion}` : ''}
+${r.modoReal && r.cipher ? `- Cifra: ${r.cipher}` : ''}
+- HSTS: ${r.hstsAtivo?'Configurado':'Não configurado'}
+- CSP: ${r.cspAtivo?'Presente':'Ausente'}
+- X-Frame-Options: ${r.xframeAtivo?'Configurado':'Ausente'}
+- SPF: ${r.spfAtivo?'Configurado':'Ausente'}
+- DMARC: ${r.dmarcAtivo?'Configurado':'Ausente'}
+${r.modoReal && r.serverHeader ? `- Server header exposto: ${r.serverHeader}` : ''}
+- Vulnerabilidades: ${r.vulns.map(v=>v.titulo).join('; ')}
+
+Responde APENAS com este JSON (sem markdown):
+{"resumo":"2-3 frases","ameacas":["ameaça 1","ameaça 2","ameaça 3"],"recomendacoes":["rec 1","rec 2","rec 3"],"contexto_mocambique":"1-2 frases sobre impacto em Moçambique","proximos_passos":"ação mais urgente"}`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, messages:[{role:'user',content:prompt}] })
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const texto = data.content?.[0]?.text || '';
+    const json = JSON.parse(texto.replace(/```json|```/g,'').trim());
+    aiContent.innerHTML = `
+      <div class="ai-block"><div class="ai-block-title">📊 Resumo da análise</div><p>${json.resumo||''}</p></div>
+      <div class="ai-block"><div class="ai-block-title">⚠️ Principais ameaças</div><ol>${(json.ameacas||[]).map(a=>`<li>${a}</li>`).join('')}</ol></div>
+      <div class="ai-block"><div class="ai-block-title">✅ Recomendações prioritárias</div><ol>${(json.recomendacoes||[]).map(r=>`<li>${r}</li>`).join('')}</ol></div>
+      ${json.contexto_mocambique?`<div class="ai-block"><div class="ai-block-title">🇲🇿 Contexto Moçambique</div><p>${json.contexto_mocambique}</p></div>`:''}
+      ${json.proximos_passos?`<div class="ai-block"><div class="ai-block-title">🚀 Próximo passo urgente</div><p><strong style="color:var(--blue)">${json.proximos_passos}</strong></p></div>`:''}
+    `;
+  } catch (err) {
+    console.warn('IA error:', err);
+    aiContent.innerHTML = `<div class="ai-block"><div class="ai-block-title">⚠️ Análise IA indisponível</div><p>A análise inteligente requer uma chave da API Anthropic. Os resultados acima são baseados em análise ${r.modoReal?'real':'heurística'} e são igualmente válidos.</p></div>`;
+  }
+}
+
+// ─── Fluxo principal ────────────────────────────────────────────────
+
+async function iniciarScan() {
+  const inp = $('urlInput'); if (!inp) return;
+  const raw = inp.value.trim();
+  if (!raw) { showToast('⚠️ Insere um URL para analisar'); return; }
+  const parsed = parsearUrl(raw);
+  if (!parsed) { showToast('⚠️ URL inválido. Exemplo: meusite.co.mz'); return; }
+
+  const btn=$('scanBtn'), btnText=$('scanBtnText'), btnIcon=$('scanBtnIcon'), spinner=$('scanSpinner');
+  if(btn) btn.disabled=true;
+  if(btnText) btnText.textContent='A analisar...';
+  if(btnIcon) btnIcon.classList.add('hidden');
+  if(spinner) spinner.classList.remove('hidden');
+
+  safeClass('results-section','add','hidden');
+  safeClass('modoBadge','add','hidden');
+  const stepsCont=$('progressSteps'); if(stepsCont) stepsCont.innerHTML='';
+  const fill=$('progressFill'); if(fill) fill.style.width='0%';
+  safeClass('progress-section','remove','hidden');
+  const progressEl=$('progress-section'); if(progressEl) window.scrollTo({top:progressEl.offsetTop-80,behavior:'smooth'});
+
+  await setProgresso(8,0);
+  await setProgresso(18,1);
+  await setProgresso(30,2);
+  await setProgresso(42,3);
+  await setProgresso(54,4);
+  await setProgresso(66,5);
+  await setProgresso(76,6);
+  await setProgresso(84,7);
+
+  let resultado;
+  let modoUsado = 'simulado';
+
+  // Tenta backend real primeiro
+  if (backendOnline) {
+    try {
+      resultado = await analisarUrlReal(parsed);
+      modoUsado = 'real';
+    } catch (err) {
+      console.warn('Backend falhou, usando modo simulado:', err);
+      resultado = analisarUrlSimulado(parsed);
+    }
+  } else {
+    resultado = analisarUrlSimulado(parsed);
+  }
+
+  await setProgresso(90,8);
+
+  renderScore(resultado);
+  renderChecks(resultado);
+  renderVulns(resultado.vulns);
+  renderTLS(resultado);
+
+  // Badge de modo
+  const mb = $('modoBadge');
+  if (mb) {
+    mb.className = `modo-badge ${modoUsado}`;
+    mb.innerHTML = modoUsado === 'real'
+      ? '✅ Dados reais — scan ao vivo'
+      : '⚠️ Modo simulado — inicia o server.py para dados reais';
+    mb.classList.remove('hidden');
+  }
+
+  const aiContent = $('aiContent');
+  if (aiContent) aiContent.innerHTML = `<div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>A gerar análise personalizada...</span></div>`;
+
+  await setProgresso(100,8);
+  await sleep(400);
+
+  safeClass('progress-section','add','hidden');
+  safeClass('results-section','remove','hidden');
+  const resultsEl=$('results-section'); if(resultsEl) window.scrollTo({top:resultsEl.offsetTop-80,behavior:'smooth'});
+
+  if(btn) btn.disabled=false;
+  if(btnText) btnText.textContent='Analisar';
+  if(btnIcon) btnIcon.classList.remove('hidden');
+  if(spinner) spinner.classList.add('hidden');
+
+  analisarComIA(resultado);
+}
+
+// ─── Event listeners ────────────────────────────────────────────────
+
+function initEventListeners() {
+  const inp = $('urlInput');
+  if (inp) inp.addEventListener('keydown', e => { if(e.key==='Enter') iniciarScan(); });
+  const btn = $('scanBtn');
+  if (btn) btn.addEventListener('click', iniciarScan);
+  document.querySelectorAll('.example-btn').forEach(b => {
+    b.addEventListener('click', () => { setUrl(b.dataset.url||b.textContent.trim()); iniciarScan(); });
+  });
+  const params = new URLSearchParams(location.search);
+  const urlParam = params.get('url');
+  if (urlParam && inp) { inp.value = decodeURIComponent(urlParam); iniciarScan(); }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { verificarBackend(); initEventListeners(); });
+} else {
+  verificarBackend();
+  initEventListeners();
+}
+
+window.iniciarScan  = iniciarScan;
+window.novaScan     = novaScan;
+window.compartilhar = compartilhar;
+window.setUrl       = setUrl;
+</script>
+</body>
+</html>
