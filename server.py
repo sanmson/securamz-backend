@@ -10,6 +10,10 @@ import OpenSSL
 app = Flask(__name__)
 CORS(app)
 
+@app.route('/health')
+def health():
+    return jsonify({"status": "ok"}), 200
+
 def check_headers(url):
     try:
         resp = requests.get(url, timeout=10, allow_redirects=True,
