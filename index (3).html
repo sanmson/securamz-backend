@@ -551,10 +551,9 @@
 
 <!-- SCRIPT PRINCIPAL -->
 <script>
-const BACKEND_URL = 'http://localhost:5000';
+// ✅ CORRIGIDO: Aponta para o backend no Render
+const BACKEND_URL = 'https://securamz-backend.onrender.com';
 let backendOnline = false;
-
-// ─── Utilitários ────────────────────────────────────────────────────
 
 function $(id) { return document.getElementById(id); }
 
@@ -593,13 +592,12 @@ function parsearUrl(raw) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ─── Verificar Backend ──────────────────────────────────────────────
-
+// ✅ CORRIGIDO: Usa /health em vez de /scan
 async function verificarBackend() {
   const el = $('backendStatus');
   const txt = $('backendStatusText');
   try {
-    const resp = await fetch(`${BACKEND_URL}/scan?url=google.com`, { signal: AbortSignal.timeout(4000) });
+    const resp = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(10000) });
     if (resp.ok) {
       backendOnline = true;
       el.className = 'backend-status online';
@@ -611,8 +609,6 @@ async function verificarBackend() {
     txt.textContent = 'Modo simulado';
   }
 }
-
-// ─── Progresso ──────────────────────────────────────────────────────
 
 const PASSOS = [
   'A resolver DNS e verificar conectividade...',
@@ -648,126 +644,61 @@ async function setProgresso(pct, passoIndex) {
   await sleep(backendOnline ? 200 : 350);
 }
 
-// ─── ANÁLISE REAL (Backend) ─────────────────────────────────────────
-
 async function analisarUrlReal(parsed) {
   const resp = await fetch(`${BACKEND_URL}/scan?url=${encodeURIComponent(parsed.href)}`);
   if (!resp.ok) throw new Error(`Backend HTTP ${resp.status}`);
   const data = await resp.json();
   if (data.error) throw new Error(data.error);
-
-  const h = data.headers || {};
-  const s = data.ssl    || {};
-  const d = data.dns    || {};
-  const t = data.tls_versions || {};
-
+  const h = data.headers || {}, s = data.ssl || {}, d = data.dns || {}, t = data.tls_versions || {};
   return {
-    host:           data.hostname,
-    isHttps:        data.is_https,
-    isMz:           data.hostname.endsWith('.mz'),
-    isGov:          data.hostname.endsWith('.gov.mz'),
-    isEdu:          data.hostname.endsWith('.ac.mz') || data.hostname.endsWith('.edu.mz'),
-    isBanco:        /bci|millennium|absa|standard|fnb|moza/i.test(data.hostname),
-    tlsAtivo:       data.is_https,
-    certValido:     s.valid && s.days_left > 0,
-    certExpirando:  s.expiring_soon || false,
-    certDaysLeft:   s.days_left,
-    certExpiry:     s.expires,
-    certIssuer:     s.issuer || '',
-    certSubject:    s.subject || '',
-    cipher:         s.cipher || '',
-    tlsVersion:     s.tls_version || '',
-    hstsAtivo:      h.hsts || false,
-    hstsValue:      h.hsts_value || '',
-    cspAtivo:       h.csp || false,
-    cspValue:       h.csp_value || '',
-    xframeAtivo:    h.xframe || false,
-    xctoAtivo:      h.xcto || false,
-    spfAtivo:       d.spf || false,
-    spfValue:       d.spf_value || '',
-    dmarcAtivo:     d.dmarc || false,
-    dmarcValue:     d.dmarc_value || '',
-    tls13:          t['TLS 1.3'] || false,
-    tls12:          t['TLS 1.2'] || false,
-    tlsLegacy:      false,
-    forwardSecrecy: s.forward_secrecy || false,
-    ocsp:           false,
-    dnssec:         false,
-    serverHeader:   h.server || '',
-    poweredBy:      h.powered_by || '',
-    modoReal:       true,
-    vulns:          gerarVulnsReal(data),
-    score:          calcularScoreReal(data),
+    host: data.hostname, isHttps: data.is_https,
+    isMz: data.hostname.endsWith('.mz'), isGov: data.hostname.endsWith('.gov.mz'),
+    isEdu: data.hostname.endsWith('.ac.mz') || data.hostname.endsWith('.edu.mz'),
+    isBanco: /bci|millennium|absa|standard|fnb|moza/i.test(data.hostname),
+    tlsAtivo: data.is_https, certValido: s.valid && s.days_left > 0,
+    certExpirando: s.expiring_soon || false, certDaysLeft: s.days_left,
+    certExpiry: s.expires, certIssuer: s.issuer || '', certSubject: s.subject || '',
+    cipher: s.cipher || '', tlsVersion: s.tls_version || '',
+    hstsAtivo: h.hsts || false, hstsValue: h.hsts_value || '',
+    cspAtivo: h.csp || false, cspValue: h.csp_value || '',
+    xframeAtivo: h.xframe || false, xctoAtivo: h.xcto || false,
+    spfAtivo: d.spf || false, spfValue: d.spf_value || '',
+    dmarcAtivo: d.dmarc || false, dmarcValue: d.dmarc_value || '',
+    tls13: t['TLS 1.3'] || false, tls12: t['TLS 1.2'] || false, tlsLegacy: false,
+    forwardSecrecy: s.forward_secrecy || false, ocsp: false, dnssec: false,
+    serverHeader: h.server || '', poweredBy: h.powered_by || '',
+    modoReal: true, vulns: gerarVulnsReal(data), score: calcularScoreReal(data),
   };
 }
 
 function gerarVulnsReal(data) {
-  const vulns = [];
-  const h = data.headers || {};
-  const s = data.ssl    || {};
-  const d = data.dns    || {};
-
-  if (!data.is_https)
-    vulns.push({ sev:'crit', codigo:'HTTP', titulo:'Site sem HTTPS — tráfego em texto claro', desc:'Todos os dados são visíveis por terceiros. Instala SSL gratuito em letsencrypt.org' });
-
-  if (data.is_https && s.valid === false)
-    vulns.push({ sev:'crit', codigo:'CERT', titulo:'Certificado SSL inválido ou expirado', desc: s.error || 'Renova o certificado imediatamente em letsencrypt.org.' });
-
-  if (s.valid && s.expiring_soon)
-    vulns.push({ sev:'high', codigo:'CERT-EXP', titulo:`Certificado expira em ${s.days_left} dias`, desc:'Configura renovação automática: certbot renew --cron' });
-
-  if (!h.csp)
-    vulns.push({ sev:'high', codigo:'CSP', titulo:'Content-Security-Policy ausente', desc:"Vulnerável a ataques XSS. Adiciona: Content-Security-Policy: default-src 'self'" });
-
-  if (data.is_https && !h.hsts)
-    vulns.push({ sev:'med', codigo:'HSTS', titulo:'HSTS não configurado', desc:'Adiciona: Strict-Transport-Security: max-age=31536000; includeSubDomains' });
-
-  if (!h.xframe)
-    vulns.push({ sev:'med', codigo:'XFRAME', titulo:'Proteção contra Clickjacking ausente', desc:'Adiciona: X-Frame-Options: SAMEORIGIN' });
-
-  if (!h.xcto)
-    vulns.push({ sev:'med', codigo:'XCTO', titulo:'X-Content-Type-Options ausente', desc:'Adiciona: X-Content-Type-Options: nosniff' });
-
-  if (!d.spf || !d.dmarc)
-    vulns.push({ sev:'med', codigo:'DNS', titulo:`${!d.spf ? 'SPF' : ''}${!d.spf && !d.dmarc ? ' e ' : ''}${!d.dmarc ? 'DMARC' : ''} ausente`, desc:'Domínio pode ser usado para enviar emails falsos (phishing).' });
-
-  if (h.server || h.powered_by)
-    vulns.push({ sev:'low', codigo:'INFO', titulo:'Informação do servidor exposta', desc:`Esconde os headers: Server: ${h.server || 'N/A'} | X-Powered-By: ${h.powered_by || 'N/A'}` });
-
-  if (vulns.length === 0)
-    vulns.push({ sev:'ok', codigo:'OK', titulo:'Nenhuma vulnerabilidade encontrada', desc:'Excelente configuração! Mantém auditorias regulares com ssllabs.com/ssltest/' });
-
+  const vulns = [], h = data.headers || {}, s = data.ssl || {}, d = data.dns || {};
+  if (!data.is_https) vulns.push({ sev:'crit', codigo:'HTTP', titulo:'Site sem HTTPS — tráfego em texto claro', desc:'Todos os dados são visíveis por terceiros. Instala SSL gratuito em letsencrypt.org' });
+  if (data.is_https && s.valid === false) vulns.push({ sev:'crit', codigo:'CERT', titulo:'Certificado SSL inválido ou expirado', desc: s.error || 'Renova o certificado imediatamente em letsencrypt.org.' });
+  if (s.valid && s.expiring_soon) vulns.push({ sev:'high', codigo:'CERT-EXP', titulo:`Certificado expira em ${s.days_left} dias`, desc:'Configura renovação automática: certbot renew --cron' });
+  if (!h.csp) vulns.push({ sev:'high', codigo:'CSP', titulo:'Content-Security-Policy ausente', desc:"Vulnerável a ataques XSS. Adiciona: Content-Security-Policy: default-src 'self'" });
+  if (data.is_https && !h.hsts) vulns.push({ sev:'med', codigo:'HSTS', titulo:'HSTS não configurado', desc:'Adiciona: Strict-Transport-Security: max-age=31536000; includeSubDomains' });
+  if (!h.xframe) vulns.push({ sev:'med', codigo:'XFRAME', titulo:'Proteção contra Clickjacking ausente', desc:'Adiciona: X-Frame-Options: SAMEORIGIN' });
+  if (!h.xcto) vulns.push({ sev:'med', codigo:'XCTO', titulo:'X-Content-Type-Options ausente', desc:'Adiciona: X-Content-Type-Options: nosniff' });
+  if (!d.spf || !d.dmarc) vulns.push({ sev:'med', codigo:'DNS', titulo:`${!d.spf ? 'SPF' : ''}${!d.spf && !d.dmarc ? ' e ' : ''}${!d.dmarc ? 'DMARC' : ''} ausente`, desc:'Domínio pode ser usado para enviar emails falsos (phishing).' });
+  if (h.server || h.powered_by) vulns.push({ sev:'low', codigo:'INFO', titulo:'Informação do servidor exposta', desc:`Esconde os headers: Server: ${h.server || 'N/A'} | X-Powered-By: ${h.powered_by || 'N/A'}` });
+  if (vulns.length === 0) vulns.push({ sev:'ok', codigo:'OK', titulo:'Nenhuma vulnerabilidade encontrada', desc:'Excelente configuração! Mantém auditorias regulares com ssllabs.com/ssltest/' });
   return vulns;
 }
 
 function calcularScoreReal(data) {
   const h = data.headers || {}, s = data.ssl || {}, d = data.dns || {}, t = data.tls_versions || {};
-  return [
-    [data.is_https,              25],
-    [s.valid && !s.expiring_soon,15],
-    [h.hsts,                     10],
-    [h.csp,                      10],
-    [h.xframe,                    8],
-    [h.xcto,                      7],
-    [d.spf,                       8],
-    [d.dmarc,                     7],
-    [t['TLS 1.3'],                5],
-    [s.forward_secrecy,           5],
-  ].reduce((acc, [ok, pts]) => acc + (ok ? pts : 0), 0);
+  return [[data.is_https,25],[s.valid&&!s.expiring_soon,15],[h.hsts,10],[h.csp,10],[h.xframe,8],[h.xcto,7],[d.spf,8],[d.dmarc,7],[t['TLS 1.3'],5],[s.forward_secrecy,5]].reduce((acc,[ok,pts])=>acc+(ok?pts:0),0);
 }
-
-// ─── ANÁLISE SIMULADA (Fallback) ────────────────────────────────────
 
 function analisarUrlSimulado(parsed) {
   const host = parsed.hostname.toLowerCase();
   const isHttps = parsed.protocol === 'https:';
-  const isMz = host.endsWith('.mz');
-  const isGov = host.endsWith('.gov.mz');
+  const isMz = host.endsWith('.mz'), isGov = host.endsWith('.gov.mz');
   const isEdu = host.endsWith('.ac.mz') || host.endsWith('.edu.mz');
   const isBanco = /bci|millennium|absa|standard|fnb|moza|letshego|capitec/i.test(host);
   const seed = host.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
   const rng = (o = 0) => ((seed * 9301 + 49297 * (o + 1)) % 233280) / 233280;
-
   const tlsAtivo = isHttps, certValido = isHttps && rng(1) > 0.2, certExpirando = isHttps && certValido && rng(2) < 0.15;
   const hstsAtivo = isHttps && (isBanco ? rng(3) > 0.1 : rng(3) > 0.45);
   const cspAtivo = isBanco ? rng(4) > 0.15 : rng(4) > 0.5;
@@ -775,7 +706,6 @@ function analisarUrlSimulado(parsed) {
   const spfAtivo = isMz ? rng(7) > 0.4 : rng(7) > 0.25, dmarcAtivo = isMz ? rng(8) > 0.55 : rng(8) > 0.4;
   const tls13 = isHttps && rng(10) > 0.3, tlsLegacy = !isHttps || rng(11) < 0.25;
   const forwardSecrecy = isHttps && rng(12) > 0.2, ocsp = isHttps && rng(13) > 0.4;
-
   const vulns = [];
   if (!isHttps) vulns.push({ sev:'crit', codigo:'CVE-HTTP', titulo:'Site sem HTTPS — tráfego em texto claro', desc:"Implementa SSL/TLS com certificado gratuito do Let's Encrypt imediatamente." });
   if (isHttps && !certValido) vulns.push({ sev:'crit', codigo:'CERT-INVALID', titulo:'Certificado SSL inválido ou expirado', desc:'Renova o certificado em letsencrypt.org (gratuito).' });
@@ -786,13 +716,9 @@ function analisarUrlSimulado(parsed) {
   if (!spfAtivo || !dmarcAtivo) vulns.push({ sev:'med', codigo:'DNS-EMAIL', titulo:`${!spfAtivo?'SPF':''}${!spfAtivo&&!dmarcAtivo?' e ':''}${!dmarcAtivo?'DMARC':''} ausente`, desc:'Domínio vulnerável a phishing por email.' });
   if (tlsLegacy && isHttps) vulns.push({ sev:'med', codigo:'TLS-LEGACY', titulo:'Protocolos TLS desatualizados possivelmente ativos', desc:'Desativa TLS 1.0/1.1 no servidor.' });
   if (vulns.length === 0) vulns.push({ sev:'ok', codigo:'ALL-CLEAR', titulo:'Nenhuma vulnerabilidade crítica detetada', desc:'Mantém auditorias regulares.' });
-
   const score = [[tlsAtivo,25],[certValido&&!certExpirando,15],[hstsAtivo,10],[cspAtivo,10],[xframeAtivo,8],[xctoAtivo,7],[spfAtivo,8],[dmarcAtivo,7],[tls13,5],[forwardSecrecy,5]].reduce((a,[ok,p])=>a+(ok?p:0),0);
-
   return { host, isHttps, isMz, isGov, isEdu, isBanco, tlsAtivo, certValido, certExpirando, hstsAtivo, cspAtivo, xframeAtivo, xctoAtivo, spfAtivo, dmarcAtivo, tls13, tls12: isHttps, tlsLegacy, forwardSecrecy, ocsp, dnssec: rng(9)>0.7, vulns, score, modoReal: false };
 }
-
-// ─── Render ─────────────────────────────────────────────────────────
 
 function tag(tipo, texto) { return `<span class="tag tag-${tipo}">${texto}</span>`; }
 function statusTag(ok, textoOk, textoFail, tipoFail='red') {
@@ -821,28 +747,20 @@ function renderVulns(vulns) {
 function renderTLS(r) {
   const el = $('tlsTable'); if (!el) return;
   const rows = [
-    ['TLS 1.3',       r.isHttps?(r.tls13?tag('green','Suportado'):tag('amber','Não detetado')):tag('gray','N/A'), 'Versão mais segura — obrigatória em novos servidores'],
-    ['TLS 1.2',       r.isHttps?tag('green','Compatível'):tag('gray','N/A'), 'Manter para compatibilidade com browsers antigos'],
-    ['TLS 1.0/1.1',   r.isHttps?(r.tlsLegacy?tag('red','Possivelmente ativo'):tag('green','Desativado')):tag('gray','N/A'), 'Deve estar desativado — vulnerável a POODLE e BEAST'],
-    ['Forward Secrecy',r.isHttps?statusTag(r.forwardSecrecy,'Ativo (ECDHE)','Não detetado','amber'):tag('gray','N/A'), 'Garante que sessões passadas não são decifráveis'],
+    ['TLS 1.3', r.isHttps?(r.tls13?tag('green','Suportado'):tag('amber','Não detetado')):tag('gray','N/A'), 'Versão mais segura — obrigatória em novos servidores'],
+    ['TLS 1.2', r.isHttps?tag('green','Compatível'):tag('gray','N/A'), 'Manter para compatibilidade com browsers antigos'],
+    ['TLS 1.0/1.1', r.isHttps?(r.tlsLegacy?tag('red','Possivelmente ativo'):tag('green','Desativado')):tag('gray','N/A'), 'Deve estar desativado — vulnerável a POODLE e BEAST'],
+    ['Forward Secrecy', r.isHttps?statusTag(r.forwardSecrecy,'Ativo (ECDHE)','Não detetado','amber'):tag('gray','N/A'), 'Garante que sessões passadas não são decifráveis'],
     ['OCSP Stapling', r.isHttps?statusTag(r.ocsp,'Ativo','Não configurado','amber'):tag('gray','N/A'), 'Melhora velocidade de verificação de certificado'],
-    ['DNSSEC',        statusTag(r.dnssec,'Ativo','Não configurado','amber'), 'Protege contra envenenamento de cache DNS'],
+    ['DNSSEC', statusTag(r.dnssec,'Ativo','Não configurado','amber'), 'Protege contra envenenamento de cache DNS'],
   ];
   if (r.modoReal && r.tlsVersion) rows.unshift(['Versão ativa', tag('green', r.tlsVersion), 'Versão TLS negociada com o servidor']);
   if (r.modoReal && r.cipher) rows.push(['Cifra ativa', `<span style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${r.cipher}</span>`, 'Suite de criptografia em uso']);
-
   el.innerHTML = `<thead><tr><th style="width:140px">Protocolo / Config</th><th style="width:160px">Estado</th><th>Recomendação</th></tr></thead><tbody>${rows.map(([p,e,r])=>`<tr><td>${p}</td><td>${e}</td><td style="color:var(--text2);font-size:12px">${r}</td></tr>`).join('')}</tbody>`;
-
-  // Detalhes do certificado (só no modo real)
   const cd = $('certDetail');
   if (cd && r.modoReal && r.certValido) {
     cd.classList.remove('hidden');
-    cd.innerHTML = `
-      <div><span>Emissor:</span> ${r.certIssuer || 'N/A'}</div>
-      <div><span>Domínio:</span> ${r.certSubject || r.host}</div>
-      <div><span>Expira:</span> ${r.certExpiry || 'N/A'}</div>
-      <div><span>Dias restantes:</span> ${r.certDaysLeft !== undefined ? r.certDaysLeft + ' dias' : 'N/A'}</div>
-    `;
+    cd.innerHTML = `<div><span>Emissor:</span> ${r.certIssuer||'N/A'}</div><div><span>Domínio:</span> ${r.certSubject||r.host}</div><div><span>Expira:</span> ${r.certExpiry||'N/A'}</div><div><span>Dias restantes:</span> ${r.certDaysLeft!==undefined?r.certDaysLeft+' dias':'N/A'}</div>`;
   } else if (cd) { cd.classList.add('hidden'); }
 }
 
@@ -860,45 +778,19 @@ function renderScore(r) {
   const bEl = $('scoreBadges');
   if (bEl) {
     const badges = [];
-    if (r.isMz)     badges.push(tag('green','🇲🇿 .mz'));
-    if (r.isGov)    badges.push(tag('amber','🏛️ Governo'));
-    if (r.isEdu)    badges.push(tag('gray','🎓 Educação'));
-    if (r.isBanco)  badges.push(tag('amber','🏦 Banco/Finanças'));
-    if (r.tlsAtivo) badges.push(tag('green','HTTPS ✓'));
-    else            badges.push(tag('red','HTTP ✗'));
-    if (r.modoReal) badges.push(tag('green','✅ Scan Real'));
-    else            badges.push(tag('amber','⚠️ Simulado'));
+    if (r.isMz) badges.push(tag('green','🇲🇿 .mz'));
+    if (r.isGov) badges.push(tag('amber','🏛️ Governo'));
+    if (r.isEdu) badges.push(tag('gray','🎓 Educação'));
+    if (r.isBanco) badges.push(tag('amber','🏦 Banco/Finanças'));
+    if (r.tlsAtivo) badges.push(tag('green','HTTPS ✓')); else badges.push(tag('red','HTTP ✗'));
+    if (r.modoReal) badges.push(tag('green','✅ Scan Real')); else badges.push(tag('amber','⚠️ Simulado'));
     bEl.innerHTML = badges.join('');
   }
 }
 
-// ─── Análise IA ─────────────────────────────────────────────────────
-
 async function analisarComIA(r) {
   const aiContent = $('aiContent'); if (!aiContent) return;
-  const prompt = `És um especialista em cibersegurança com foco em Moçambique. Analisa este website e dá recomendações práticas.
-
-Website: ${r.host}
-Pontuação de segurança: ${r.score}/100
-Tipo de análise: ${r.modoReal ? 'SCAN REAL — dados verificados em tempo real' : 'Análise heurística simulada'}
-País/contexto: ${r.isMz?'Moçambique (.mz)':''} ${r.isGov?'— Setor governamental':''} ${r.isBanco?'— Setor financeiro':''}
-
-Resultados:
-- HTTPS/TLS: ${r.tlsAtivo?'Ativo':'AUSENTE — crítico'}
-- Certificado: ${!r.isHttps?'N/A':r.certValido?(r.certExpirando?`Expira em ${r.certDaysLeft||'?'} dias`:'Válido'):'Inválido'}
-${r.modoReal && r.tlsVersion ? `- Versão TLS ativa: ${r.tlsVersion}` : ''}
-${r.modoReal && r.cipher ? `- Cifra: ${r.cipher}` : ''}
-- HSTS: ${r.hstsAtivo?'Configurado':'Não configurado'}
-- CSP: ${r.cspAtivo?'Presente':'Ausente'}
-- X-Frame-Options: ${r.xframeAtivo?'Configurado':'Ausente'}
-- SPF: ${r.spfAtivo?'Configurado':'Ausente'}
-- DMARC: ${r.dmarcAtivo?'Configurado':'Ausente'}
-${r.modoReal && r.serverHeader ? `- Server header exposto: ${r.serverHeader}` : ''}
-- Vulnerabilidades: ${r.vulns.map(v=>v.titulo).join('; ')}
-
-Responde APENAS com este JSON (sem markdown):
-{"resumo":"2-3 frases","ameacas":["ameaça 1","ameaça 2","ameaça 3"],"recomendacoes":["rec 1","rec 2","rec 3"],"contexto_mocambique":"1-2 frases sobre impacto em Moçambique","proximos_passos":"ação mais urgente"}`;
-
+  const prompt = `És um especialista em cibersegurança com foco em Moçambique. Analisa este website e dá recomendações práticas.\n\nWebsite: ${r.host}\nPontuação de segurança: ${r.score}/100\nTipo de análise: ${r.modoReal ? 'SCAN REAL — dados verificados em tempo real' : 'Análise heurística simulada'}\nPaís/contexto: ${r.isMz?'Moçambique (.mz)':''} ${r.isGov?'— Setor governamental':''} ${r.isBanco?'— Setor financeiro':''}\n\nResultados:\n- HTTPS/TLS: ${r.tlsAtivo?'Ativo':'AUSENTE — crítico'}\n- Certificado: ${!r.isHttps?'N/A':r.certValido?(r.certExpirando?`Expira em ${r.certDaysLeft||'?'} dias`:'Válido'):'Inválido'}\n${r.modoReal && r.tlsVersion ? `- Versão TLS ativa: ${r.tlsVersion}` : ''}\n${r.modoReal && r.cipher ? `- Cifra: ${r.cipher}` : ''}\n- HSTS: ${r.hstsAtivo?'Configurado':'Não configurado'}\n- CSP: ${r.cspAtivo?'Presente':'Ausente'}\n- X-Frame-Options: ${r.xframeAtivo?'Configurado':'Ausente'}\n- SPF: ${r.spfAtivo?'Configurado':'Ausente'}\n- DMARC: ${r.dmarcAtivo?'Configurado':'Ausente'}\n${r.modoReal && r.serverHeader ? `- Server header exposto: ${r.serverHeader}` : ''}\n- Vulnerabilidades: ${r.vulns.map(v=>v.titulo).join('; ')}\n\nResponde APENAS com este JSON (sem markdown):\n{"resumo":"2-3 frases","ameacas":["ameaça 1","ameaça 2","ameaça 3"],"recomendacoes":["rec 1","rec 2","rec 3"],"contexto_mocambique":"1-2 frases sobre impacto em Moçambique","proximos_passos":"ação mais urgente"}`;
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -922,89 +814,51 @@ Responde APENAS com este JSON (sem markdown):
   }
 }
 
-// ─── Fluxo principal ────────────────────────────────────────────────
-
 async function iniciarScan() {
   const inp = $('urlInput'); if (!inp) return;
   const raw = inp.value.trim();
   if (!raw) { showToast('⚠️ Insere um URL para analisar'); return; }
   const parsed = parsearUrl(raw);
   if (!parsed) { showToast('⚠️ URL inválido. Exemplo: meusite.co.mz'); return; }
-
   const btn=$('scanBtn'), btnText=$('scanBtnText'), btnIcon=$('scanBtnIcon'), spinner=$('scanSpinner');
   if(btn) btn.disabled=true;
   if(btnText) btnText.textContent='A analisar...';
   if(btnIcon) btnIcon.classList.add('hidden');
   if(spinner) spinner.classList.remove('hidden');
-
   safeClass('results-section','add','hidden');
   safeClass('modoBadge','add','hidden');
   const stepsCont=$('progressSteps'); if(stepsCont) stepsCont.innerHTML='';
   const fill=$('progressFill'); if(fill) fill.style.width='0%';
   safeClass('progress-section','remove','hidden');
   const progressEl=$('progress-section'); if(progressEl) window.scrollTo({top:progressEl.offsetTop-80,behavior:'smooth'});
-
-  await setProgresso(8,0);
-  await setProgresso(18,1);
-  await setProgresso(30,2);
-  await setProgresso(42,3);
-  await setProgresso(54,4);
-  await setProgresso(66,5);
-  await setProgresso(76,6);
-  await setProgresso(84,7);
-
-  let resultado;
-  let modoUsado = 'simulado';
-
-  // Tenta backend real primeiro
+  await setProgresso(8,0); await setProgresso(18,1); await setProgresso(30,2);
+  await setProgresso(42,3); await setProgresso(54,4); await setProgresso(66,5);
+  await setProgresso(76,6); await setProgresso(84,7);
+  let resultado, modoUsado = 'simulado';
   if (backendOnline) {
-    try {
-      resultado = await analisarUrlReal(parsed);
-      modoUsado = 'real';
-    } catch (err) {
-      console.warn('Backend falhou, usando modo simulado:', err);
-      resultado = analisarUrlSimulado(parsed);
-    }
-  } else {
-    resultado = analisarUrlSimulado(parsed);
-  }
-
+    try { resultado = await analisarUrlReal(parsed); modoUsado = 'real'; }
+    catch (err) { console.warn('Backend falhou:', err); resultado = analisarUrlSimulado(parsed); }
+  } else { resultado = analisarUrlSimulado(parsed); }
   await setProgresso(90,8);
-
-  renderScore(resultado);
-  renderChecks(resultado);
-  renderVulns(resultado.vulns);
-  renderTLS(resultado);
-
-  // Badge de modo
+  renderScore(resultado); renderChecks(resultado); renderVulns(resultado.vulns); renderTLS(resultado);
   const mb = $('modoBadge');
   if (mb) {
     mb.className = `modo-badge ${modoUsado}`;
-    mb.innerHTML = modoUsado === 'real'
-      ? '✅ Dados reais — scan ao vivo'
-      : '⚠️ Modo simulado — inicia o server.py para dados reais';
+    mb.innerHTML = modoUsado === 'real' ? '✅ Dados reais — scan ao vivo' : '⚠️ Modo simulado — backend indisponível';
     mb.classList.remove('hidden');
   }
-
   const aiContent = $('aiContent');
   if (aiContent) aiContent.innerHTML = `<div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>A gerar análise personalizada...</span></div>`;
-
-  await setProgresso(100,8);
-  await sleep(400);
-
+  await setProgresso(100,8); await sleep(400);
   safeClass('progress-section','add','hidden');
   safeClass('results-section','remove','hidden');
   const resultsEl=$('results-section'); if(resultsEl) window.scrollTo({top:resultsEl.offsetTop-80,behavior:'smooth'});
-
   if(btn) btn.disabled=false;
   if(btnText) btnText.textContent='Analisar';
   if(btnIcon) btnIcon.classList.remove('hidden');
   if(spinner) spinner.classList.add('hidden');
-
   analisarComIA(resultado);
 }
-
-// ─── Event listeners ────────────────────────────────────────────────
 
 function initEventListeners() {
   const inp = $('urlInput');
@@ -1021,10 +875,7 @@ function initEventListeners() {
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => { verificarBackend(); initEventListeners(); });
-} else {
-  verificarBackend();
-  initEventListeners();
-}
+} else { verificarBackend(); initEventListeners(); }
 
 window.iniciarScan  = iniciarScan;
 window.novaScan     = novaScan;
