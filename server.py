@@ -117,6 +117,9 @@ def check_tls_versions(hostname):
 @app.route('/health')
 def health():
     return jsonify({"status": "ok"}), 200
+
+@app.route('/scan', methods=['GET'])
+def scan():
     url = request.args.get('url', '').strip()
     if not url:
         return jsonify({"error": "URL em falta"}), 400
